@@ -13,6 +13,7 @@ import os
 import re
 import unicodedata
 import openpyxl
+from difflib import SequenceMatcher
 from openpyxl.styles.fills import PatternFill
 
 # openpyxl bug: some Excel files include an 'extLst' XML attribute in fill
@@ -29,7 +30,7 @@ PatternFill.__init__ = _pf_init
 
 EXCEL_PATH = r"C:\Users\leo-s\Downloads\BFD_Lista de Concluintes_Ciclo1_por Estado_por Turma.xlsx"
 SHEET_NAME = "Leandro"
-ESTADOS    = ["Pernambuco"]
+ESTADOS    = ["Rio de Janeiro"]
 
 
 # Pasta raiz onde estão as subpastas de cada estado > turma > aluno
@@ -42,7 +43,7 @@ ESTADOS    = ["Pernambuco"]
 #     MARANHAO/
 #       T01MAC1/
 #         ...
-DRIVE_ROOT = r"C:\Users\leo-s\Downloads\Pernambuco\Python"
+DRIVE_ROOT = r"C:\Users\leo-s\Downloads\Rio de Janeiro"
 
 # ─────────────────────────────────────────────
 # FUNÇÕES AUXILIARES
@@ -60,15 +61,29 @@ def normalizar(texto):
     return texto
 
 
+def _palavras_parecidas(a, b, threshold=0.82):
+    return SequenceMatcher(None, a, b).ratio() >= threshold
+
+
 def nomes_em_comum(nome_a, nome_b, min_palavras=2):
     """
     Retorna True se os dois nomes compartilham pelo menos `min_palavras`
     palavras significativas (ignora partículas como de/da/do/dos/das/e).
+    Aceita pequenos erros de digitação via similaridade de texto.
     """
     particulas = {"de", "da", "do", "dos", "das", "e", "a", "o"}
-    pa = set(normalizar(nome_a).split()) - particulas
-    pb = set(normalizar(nome_b).split()) - particulas
-    return len(pa & pb) >= min_palavras
+    pa = [w for w in normalizar(nome_a).split() if w not in particulas]
+    pb = [w for w in normalizar(nome_b).split() if w not in particulas]
+
+    usados = set()
+    matches = 0
+    for wa in pa:
+        for i, wb in enumerate(pb):
+            if i not in usados and _palavras_parecidas(wa, wb):
+                matches += 1
+                usados.add(i)
+                break
+    return matches >= min_palavras
 
 
 # ─────────────────────────────────────────────
